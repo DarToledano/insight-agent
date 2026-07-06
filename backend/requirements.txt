@@ -1,0 +1,17 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+
+# Configuration & validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# OpenAI (integrated later)
+openai==1.57.4
+
+# Development
+python-dotenv==1.0.1
