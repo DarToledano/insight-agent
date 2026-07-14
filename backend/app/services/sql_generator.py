@@ -12,6 +12,10 @@ Rules:
 - Use only tables and columns that exist in the provided database metadata.
 - Use the column value hints (categorical values, numeric/temporal ranges) when filtering.
 - Prefer explicit JOINs using the documented foreign key relationships.
+- When the question refers to business entities (companies, users, plans, etc.), JOIN related
+  tables and SELECT human-readable labels such as name, full_name, or title — not raw id or
+  foreign-key UUID columns (e.g. company_id) in the final output.
+- Only include id columns when the question explicitly asks for identifiers.
 - Return only SQL. No markdown, no code fences, no explanation.
 """
 
@@ -35,7 +39,8 @@ class SQLGenerator:
         user_prompt = (
             f"Database metadata:\n\n{metadata_text}\n\n"
             f"Question: {question.strip()}\n\n"
-            "Write a PostgreSQL SELECT query that answers the question."
+            "Write a PostgreSQL SELECT query that answers the question. "
+            "Use readable entity names in the result columns whenever applicable."
         )
 
         raw_sql = self._get_llm().generate_text(SYSTEM_PROMPT, user_prompt)

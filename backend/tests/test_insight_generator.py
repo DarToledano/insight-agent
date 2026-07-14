@@ -227,4 +227,5 @@ def test_ask_service_returns_table_and_sql_on_insight_failure():
     assert response.table.rows == [["Zenith Consulting"]]
     assert response.debug.sql == "SELECT name FROM companies"
     assert response.metadata.row_count == 1
+    assert response.chart.type == "none"
     assert response.answer == "Name is Zenith Consulting."

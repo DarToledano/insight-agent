@@ -1,3 +1,12 @@
+export type ChartType = "bar" | "line" | "pie" | "kpi" | "none";
+
+export interface ChartConfig {
+  type: ChartType;
+  x_key: string;
+  y_key: string;
+  title: string;
+}
+
 export interface AskRequest {
   question: string;
 }
@@ -19,6 +28,7 @@ export interface AskDebug {
 export interface AskResponse {
   answer: string;
   table: TableData;
+  chart: ChartConfig;
   metadata: AskMetadata;
   debug: AskDebug;
 }

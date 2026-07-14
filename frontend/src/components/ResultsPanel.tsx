@@ -1,8 +1,8 @@
 import type { AskResponse } from "../types/api";
 import { AnswerCard } from "./AnswerCard";
+import { ChartRenderer } from "./charts/ChartRenderer";
 import { QueryMetadata } from "./QueryMetadata";
 import { ResultsTable } from "./ResultsTable";
-import { ResultsVisualization } from "./ResultsVisualization";
 import { SqlViewer } from "./SqlViewer";
 import styles from "./ResultsPanel.module.css";
 
@@ -22,10 +22,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
 
       <div className={styles.grid}>
         <ResultsTable columns={result.table.columns} rows={result.table.rows} />
-        <ResultsVisualization
-          columns={result.table.columns}
-          rows={result.table.rows}
-        />
+        <ChartRenderer chart={result.chart} table={result.table} />
       </div>
 
       <SqlViewer sql={result.debug.sql} />

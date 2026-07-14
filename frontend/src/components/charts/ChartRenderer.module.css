@@ -58,7 +58,7 @@
 
 .placeholderText {
   margin: 0;
-  max-width: 220px;
+  max-width: 240px;
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--color-text-muted);
@@ -69,9 +69,8 @@
   min-height: 280px;
 }
 
-.chartLabel {
-  margin: 0.75rem 0 0;
-  font-size: 0.75rem;
-  text-align: center;
-  color: var(--color-text-muted);
+@media (max-width: 900px) {
+  .section {
+    min-height: 320px;
+  }
 }

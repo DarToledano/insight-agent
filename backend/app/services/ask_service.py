@@ -4,7 +4,8 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.schemas.ask import AskDebug, AskMetadata, AskResponse, TableData
+from app.schemas.ask import AskDebug, AskMetadata, AskResponse, ChartConfig, TableData
+from app.services.chart_selector import ChartSelector
 from app.services.insight_generator import InsightGenerator
 from app.services.metadata_cache import get_metadata_cache
 from app.services.metadata_formatter import format_subset_metadata
@@ -28,6 +29,7 @@ class AskService:
         result_formatter: ResultFormatter | None = None,
         metadata_selector: MetadataSelector | None = None,
         insight_generator: InsightGenerator | None = None,
+        chart_selector: ChartSelector | None = None,
     ) -> None:
         self._sql_generator = sql_generator or SQLGenerator()
         self._sql_validator = sql_validator or SQLValidator()
@@ -35,6 +37,7 @@ class AskService:
         self._result_formatter = result_formatter or ResultFormatter()
         self._metadata_selector = metadata_selector or MetadataSelector()
         self._insight_generator = insight_generator or InsightGenerator()
+        self._chart_selector = chart_selector or ChartSelector()
 
     def ask(self, db: Session, question: str) -> AskResponse:
         logger.info("Received question: %s", question.strip())
@@ -67,10 +70,17 @@ class AskService:
             row_count=formatted["row_count"],
         )
 
+        chart_selection = self._chart_selector.select(
+            question=question,
+            columns=formatted["columns"],
+            rows=formatted["rows"],
+        )
+
         logger.info(
-            "Pipeline complete: row_count=%d execution_time_ms=%d",
+            "Pipeline complete: row_count=%d execution_time_ms=%d chart=%s",
             formatted["row_count"],
             formatted["execution_time_ms"],
+            chart_selection.type,
         )
 
         return AskResponse(
@@ -79,6 +89,7 @@ class AskService:
                 columns=formatted["columns"],
                 rows=formatted["rows"],
             ),
+            chart=ChartConfig(**chart_selection.to_dict()),
             metadata=AskMetadata(
                 row_count=formatted["row_count"],
                 execution_time_ms=formatted["execution_time_ms"],

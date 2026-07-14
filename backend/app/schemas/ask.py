@@ -1,6 +1,6 @@
 """Request/response schemas for POST /ask."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,13 @@ class TableData(BaseModel):
     rows: list[list[Any]]
 
 
+class ChartConfig(BaseModel):
+    type: Literal["bar", "line", "pie", "kpi", "none"] = "none"
+    x_key: str = ""
+    y_key: str = ""
+    title: str = ""
+
+
 class AskMetadata(BaseModel):
     row_count: int
     execution_time_ms: int
@@ -31,5 +38,6 @@ class AskDebug(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     table: TableData
+    chart: ChartConfig = Field(default_factory=ChartConfig)
     metadata: AskMetadata
     debug: AskDebug

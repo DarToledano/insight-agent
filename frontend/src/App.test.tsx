@@ -14,6 +14,12 @@ const mockResponse: AskResponse = {
       ["SecureNet Corp", 28764],
     ],
   },
+  chart: {
+    type: "bar",
+    x_key: "name",
+    y_key: "total_revenue",
+    title: "Total Revenue by Name",
+  },
   metadata: {
     row_count: 2,
     execution_time_ms: 42,
@@ -89,6 +95,7 @@ describe("App", () => {
     expect(screen.getByText("47,940")).toBeInTheDocument();
     expect(screen.getByText("2 rows")).toBeInTheDocument();
     expect(screen.getByText("42 ms")).toBeInTheDocument();
+    expect(screen.getByText("Total Revenue by Name")).toBeInTheDocument();
   });
 
   it("shows API error message", async () => {
