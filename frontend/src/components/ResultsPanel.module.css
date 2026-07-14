@@ -1,0 +1,18 @@
+.panel {
+  animation: fadeInUp var(--transition-slow) ease-out;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  min-height: 360px;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+}

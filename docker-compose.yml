@@ -25,12 +25,22 @@ services:
       dockerfile: Dockerfile
     container_name: insightagent-backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
+      # Override host for Docker network (db service name, not localhost)
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-insight}:${POSTGRES_PASSWORD:-insight}@db:5432/${POSTGRES_DB:-insightagent}
+      DEBUG: ${DEBUG:-false}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      METADATA_LOW_CARDINALITY_THRESHOLD: ${METADATA_LOW_CARDINALITY_THRESHOLD:-20}
+      INSIGHT_MAX_ROWS: ${INSIGHT_MAX_ROWS:-50}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
+      - ./backend/pytest.ini:/app/pytest.ini
     depends_on:
       db:
         condition: service_healthy
@@ -41,12 +51,17 @@ services:
       dockerfile: Dockerfile
     container_name: insightagent-frontend
     restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/vitest.config.ts:/app/vitest.config.ts
+      - ./frontend/.env:/app/.env
     depends_on:
       - backend
 
