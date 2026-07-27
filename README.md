@@ -1,48 +1,112 @@
 # InsightAgent
 
-AI Data Analyst Agent that lets users ask complex business questions in natural language about a PostgreSQL database.
+InsightAgent is an AI data analyst that lets users ask business questions in natural language. It generates read-only PostgreSQL queries, executes them safely, summarizes the results with a second LLM call, and presents answers, tables, charts, and debug SQL through a React dashboard.
+
+## Main Features
+
+### Backend
+
+- **`POST /ask`** — End-to-end pipeline: metadata selection → SQL generation (LLM) → validation → execution → insight generation → chart selection
+- **Metadata engine** — Profiles the database at startup (column types, categorical values, numeric/date ranges) and selects relevant tables per question
+- **Chart selection** — Rule-based `ChartSelector` returns bar, line, pie, KPI, or `none` in the `/ask` response
+- **`POST /generate-sql`** — Debug-only SQL generation (no validation or execution)
+- **`GET /schema`** — Raw schema introspection (tables and columns)
+- **`GET /metadata`** / **`POST /metadata/refresh`** — Read or rebuild the metadata cache
+- **`GET /health`** / **`GET /db-health`** — API and database health checks
+- **SQL safety** — Read-only query validation before execution
+
+### Frontend
+
+- Dashboard UI with collapsible sidebar, dark/light theme, and example questions
+- Chat-style question input connected to `POST /ask`
+- Displays AI answer, dynamic results table, query metadata, and collapsible generated SQL
+- Automatic chart rendering (Recharts): bar, line, pie, and KPI views driven by backend `chart` config
+
+### Database
+
+- PostgreSQL 16 with a SaaS analytics schema (7 business tables + seed data)
+- Optional **pgAdmin** service for database inspection
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Backend | Python 3.12, FastAPI |
-| Database | PostgreSQL 16 |
-| ORM | SQLAlchemy 2 |
-| Frontend | React, TypeScript, Vite |
-| Charts | Recharts |
-| AI | OpenAI API |
-| Containers | Docker, Docker Compose |
+| Layer | Technology | Version (from project files) |
+|-------|------------|------------------------------|
+| Backend runtime | Python | 3.12 (`backend/Dockerfile`) |
+| API | FastAPI | 0.115.6 |
+| ASGI server | Uvicorn | 0.34.0 |
+| ORM / DB driver | SQLAlchemy, psycopg | 2.0.36, 3.2.3 |
+| Validation / config | Pydantic, pydantic-settings | 2.10.3, 2.6.1 |
+| AI | OpenAI Python SDK | 1.57.4 |
+| Database | PostgreSQL | 16-alpine |
+| Frontend runtime | Node.js | 22 (`frontend/Dockerfile`) |
+| UI | React, TypeScript | 19.x, ~5.6 |
+| Build tool | Vite | 6.0.5 |
+| Charts / icons | Recharts, lucide-react | 2.15.0, 0.469.0 |
+| Testing | pytest, Vitest | 8.3.4, 2.1.8 |
+| Containers | Docker, Docker Compose | — |
 
 ## Project Structure
 
 ```
 insight-agent/
-├── backend/          # FastAPI application
-├── frontend/         # React + TypeScript UI
-├── database/         # SQL init and seed scripts
-├── docs/             # Architecture and development docs
-├── docker-compose.yml
-├── .env.example
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # FastAPI entry point, CORS, metadata cache startup
+│   │   ├── api/                 # Route handlers (ask, health, schema, metadata, generate-sql)
+│   │   ├── core/                # Settings (config.py) and database session
+│   │   ├── schemas/             # Pydantic request/response models
+│   │   ├── services/            # Pipeline logic (SQL gen, execution, insights, charts, metadata)
+│   │   ├── models/              # SQLAlchemy base (minimal ORM usage)
+│   │   └── utils/               # SQL cleaning and validation helpers
+│   ├── tests/                   # pytest suite
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx              # Main page orchestration
+│   │   ├── components/          # UI (forms, tables, charts, layout, SQL viewer)
+│   │   ├── services/api.ts      # HTTP client for POST /ask
+│   │   ├── types/               # TypeScript API interfaces
+│   │   ├── hooks/               # Theme toggle
+│   │   ├── styles/              # Global CSS variables and base styles
+│   │   └── utils/               # Cell formatting, chart row conversion
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── vitest.config.ts
+├── database/
+│   ├── init.sql                 # Schema (companies, users, subscriptions, payments, …)
+│   └── seed.sql                 # Sample analytics data
+├── docs/                        # Additional architecture and development notes
+├── docker-compose.yml           # db, backend, frontend, pgadmin services
+├── .env.example                 # Root environment template
 └── README.md
 ```
 
-## Quick Start
+### Database tables
 
-### Prerequisites
+The sample schema includes: `companies`, `users`, `subscriptions`, `payments`, `feature_usage`, `support_tickets`, and `login_events`.
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
-- (Optional) Node.js 22+ and Python 3.12 for local development outside Docker
+## Prerequisites
 
-### Run with Docker
+- **Docker** and **Docker Compose** (recommended for full stack)
+- **OpenAI API key** (required for `POST /ask` and `POST /generate-sql`)
+- For local development outside Docker:
+  - Python **3.12**
+  - Node.js **22+**
+  - PostgreSQL **16** (or run only the `db` service via Docker)
 
-1. Copy the environment template and add your OpenAI API key:
+No XML configuration files are used by this project.
+
+## Quick Start (Docker)
+
+1. Copy the environment template and set your OpenAI key:
 
    ```bash
    cp .env.example .env
    ```
 
-   Edit `.env` and set `OPENAI_API_KEY` (required for `POST /generate-sql`):
+   Edit `.env`:
 
    ```
    OPENAI_API_KEY=sk-your-key-here
@@ -54,90 +118,154 @@ insight-agent/
    docker compose up --build
    ```
 
-3. Open the app:
+3. Open the application:
 
    | Service | URL |
    |---------|-----|
    | Frontend | http://localhost:5173 |
    | Backend API docs | http://localhost:8000/docs |
    | Health check | http://localhost:8000/health |
+   | pgAdmin | http://localhost:5050 |
 
-### Frontend setup
+   Default pgAdmin login (from `.env.example`): `admin@example.com` / `admin`
 
-The React UI calls `POST /ask` on the backend and displays the answer, results table, metadata, and generated SQL.
+## Local Development (without full Docker stack)
 
-1. Copy the frontend environment template:
+### Database only
 
-   ```bash
-   cp frontend/.env.example frontend/.env
-   ```
+```bash
+docker compose up db
+```
 
-2. Configure the backend URL if needed:
+Schema and seed data apply automatically on first container start via `database/init.sql` and `database/seed.sql`.
 
-   ```
-   VITE_API_BASE_URL=http://localhost:8000
-   ```
-
-3. When using Docker Compose, also ensure the backend allows the frontend origin:
-
-   ```
-   CORS_ORIGINS=http://localhost:5173
-   ```
-
-### Local Development (without Docker)
-
-**Backend:**
+### Backend
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
-**Frontend:**
+The backend reads configuration from the root `.env` file (`backend/app/core/config.py`). Set `DATABASE_URL` to point at your PostgreSQL instance when not using Docker networking.
+
+### Frontend
 
 ```bash
 cd frontend
 cp .env.example .env
 npm install
 npm run dev
-npm test
 ```
 
-The frontend reads `VITE_API_BASE_URL` from `frontend/.env` and sends questions to `POST /ask`.
+The frontend reads `VITE_API_BASE_URL` from `frontend/.env` (default `http://localhost:8000`).
 
-**Database:** Start PostgreSQL locally or run only the db service:
+When running the frontend on a different origin, set `CORS_ORIGINS` in the root `.env` so the backend accepts browser requests (default `http://localhost:5173`).
+
+## Configuration
+
+### Root `.env` (backend + Docker Compose)
+
+Copy from `.env.example`:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes (for `/ask`, `/generate-sql`) | — | OpenAI API key |
+| `OPENAI_MODEL` | No | `gpt-4.1-mini` | Chat model for SQL and insight generation |
+| `DATABASE_URL` | No* | `postgresql+psycopg://insight:insight@db:5432/insightagent` | PostgreSQL connection string (*Docker overrides host to `db`) |
+| `POSTGRES_USER` | No | `insight` | Database user |
+| `POSTGRES_PASSWORD` | No | `insight` | Database password |
+| `POSTGRES_DB` | No | `insightagent` | Database name |
+| `POSTGRES_PORT` | No | `5432` | Host port for PostgreSQL |
+| `BACKEND_PORT` | No | `8000` | Host port for FastAPI |
+| `FRONTEND_PORT` | No | `5173` | Host port for Vite dev server |
+| `VITE_API_BASE_URL` | No | `http://localhost:8000` | Backend URL injected into frontend container |
+| `CORS_ORIGINS` | No | `http://localhost:5173` | Comma-separated allowed browser origins |
+| `DEBUG` | No | `false` (Docker), `true` (.env.example) | Backend debug logging |
+| `METADATA_LOW_CARDINALITY_THRESHOLD` | No | `20` | Max distinct values to profile as categorical |
+| `INSIGHT_MAX_ROWS` | No | `50` | Max result rows sent to the insight LLM |
+| `PGADMIN_DEFAULT_EMAIL` | No | `admin@example.com` | pgAdmin login email |
+| `PGADMIN_DEFAULT_PASSWORD` | No | `admin` | pgAdmin login password |
+| `PGADMIN_PORT` | No | `5050` | Host port for pgAdmin |
+
+Get an OpenAI API key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+
+### Frontend `frontend/.env`
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Backend base URL for API requests |
+
+## Usage
+
+### Web UI
+
+1. Open http://localhost:5173
+2. Enter a question or click an example, e.g. **Which companies have the highest revenue?**
+3. Click **Ask**
+4. Review the AI insight, results table, chart (when applicable), metadata, and optional SQL
+
+### API example
 
 ```bash
-docker compose up db
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d "{\"question\": \"Show total revenue by subscription plan\"}"
 ```
 
-## Status
+Example response shape:
 
-The backend exposes health checks, schema introspection, SQL generation (`POST /generate-sql`, debug only), and the full natural-language analytics pipeline (`POST /ask`).
-
-## InsightAgent `/ask` Pipeline
-
-`POST /ask` runs two separate LLM steps:
-
-1. **SQL generation** — converts the question + database metadata into a read-only PostgreSQL query.
-2. **Result interpretation** — converts the executed query results into a concise business answer.
-
-This separation reduces hallucinations: the second LLM call receives **only the rows returned by the database**, not the full schema or raw table contents. It cannot invent values that were not in the query result.
-
-The API still returns the full result table, execution metadata, and debug SQL unchanged. Only the `answer` field adds the human-readable summary.
-
-Configure how many rows are sent to the insight LLM with:
-
+```json
+{
+  "answer": "...",
+  "table": {
+    "columns": ["subscription_plan", "total_revenue"],
+    "rows": [["enterprise", 131036], ["pro", 4776], ["starter", 196]]
+  },
+  "chart": {
+    "type": "bar",
+    "x_key": "subscription_plan",
+    "y_key": "total_revenue",
+    "title": "Total Revenue by Subscription Plan"
+  },
+  "metadata": {
+    "row_count": 3,
+    "execution_time_ms": 42
+  },
+  "debug": {
+    "sql": "SELECT ..."
+  }
+}
 ```
-INSIGHT_MAX_ROWS=50
+
+## `/ask` Pipeline
+
+1. **Metadata selection** — Relevant tables are chosen from the in-memory metadata cache
+2. **SQL generation (LLM #1)** — Question + metadata → PostgreSQL `SELECT`
+3. **Validation** — Read-only safety checks
+4. **Execution** — Query runs against PostgreSQL
+5. **Insight generation (LLM #2)** — Result rows → human-readable `answer`
+6. **Chart selection** — Rule-based chart type and axis keys
+
+The insight step receives only executed result rows (up to `INSIGHT_MAX_ROWS`), not the full schema, to reduce hallucinated values.
+
+## Testing
+
+### Backend (pytest)
+
+With Docker:
+
+```bash
+docker exec insightagent-backend pytest
 ```
 
-If a query returns more rows, the insight step summarizes the first `INSIGHT_MAX_ROWS` rows and notes that additional rows are available in the `table` response.
-
-Run backend tests:
+Locally:
 
 ```bash
 cd backend
@@ -145,42 +273,45 @@ pip install -r requirements.txt
 pytest
 ```
 
-## OpenAI Configuration
+### Frontend (Vitest)
 
-SQL generation uses the OpenAI Chat Completions API. Configure it in `.env` at the project root:
-
-```
-OPENAI_API_KEY=sk-your-key-here
-OPENAI_MODEL=gpt-4.1-mini
-```
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | Yes (for `/ask`, `/generate-sql`) | — | Your OpenAI API key |
-| `OPENAI_MODEL` | No | `gpt-4.1-mini` | Chat model used by `LLMService` |
-| `INSIGHT_MAX_ROWS` | No | `50` | Max result rows sent to the insight LLM |
-
-**Switch models** — change `OPENAI_MODEL` in `.env` (e.g. `gpt-4.1`, `gpt-4o-mini`) and restart the backend:
+With Docker:
 
 ```bash
-docker compose up -d backend
+docker exec insightagent-frontend npm test
 ```
 
-**Local development** — the same `.env` file is read by `backend/app/core/config.py` when running outside Docker.
+Locally:
 
-Get an API key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+```bash
+cd frontend
+npm install
+npm test
+```
 
-## Frontend Architecture
+### Build frontend for production
 
-The frontend is a single-page React app that:
+```bash
+cd frontend
+npm run build
+npm run preview
+```
 
-1. Collects a natural-language question
-2. Sends `POST {VITE_API_BASE_URL}/ask`
-3. Displays the returned `answer`, dynamic `table`, subtle `metadata`, and collapsible `debug.sql`
+## Known Limitations
 
-### Screenshots
+Verified from the current codebase:
 
-<!-- Add screenshots of the InsightAgent dashboard here -->
+- **Sidebar placeholders** — History, Saved Queries, Analytics, and Settings nav items are UI-only (not wired to backend routes)
+- **`POST /generate-sql`** — Debug endpoint; does not validate or execute SQL
+- **Chart selection** — Rule-based only; no LLM chart recommendations yet
+- **Database migrations** — Schema is applied via `init.sql` on first DB start; no Alembic migration runner (see `docs/architecture.md`)
+- **ORM models** — Most data access uses raw SQL execution; SQLAlchemy models are minimal
+- **OpenAI dependency** — `/ask` and `/generate-sql` require a valid `OPENAI_API_KEY`; insight failures fall back to a generic answer while still returning table/SQL data
+
+## Additional Documentation
+
+- [`docs/architecture.md`](docs/architecture.md) — High-level architecture notes
+- [`docs/development.md`](docs/development.md) — Development conventions
 
 ## License
 
